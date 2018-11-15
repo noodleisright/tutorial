@@ -1,0 +1,143 @@
+
+#include "stdafx.h"
+#include <glut.h>
+//////////////////////////////////////////////////////////////////////
+#include <iostream>
+using std::cerr;
+using std::endl;
+#include <stdlib.h>
+#include <windows.h>
+#include <math.h>
+#include <Gl.h>
+#include <Glu.h>
+// 원주율
+float pi = 3.14;
+int SCREEN_HEIGHT = 480;
+
+int NUMPOINTS = 0;
+
+class Point {
+public:
+	float x, y, z;
+	void setxy(float x2, float y2) { x = x2; y = y2; }
+	const Point & operator=(const Point &rPoint) {
+		x = rPoint.x;
+		y = rPoint.y;
+		z = rPoint.z;
+
+		return *this;
+	}
+
+};
+
+Point abc[4];
+//affine 대조군
+Point def[4];
+
+
+void myInit() {
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glColor3f(1.0, 0.0, 0.0);   // 검은색배경 
+	glPointSize(4.0);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluOrtho2D(0.0, 640.0, 0.0, 480.0);
+
+}
+
+void drawDot(float x, float y) {
+	glBegin(GL_POINTS);
+	glVertex2i(x, y);
+	glEnd();
+	glFlush();
+}
+
+void drawLine(Point p1, Point p2) {
+	glBegin(GL_LINES);
+	glVertex3f(p1.x, p1.y, p1.z);
+	glVertex3f(p2.x, p2.y, p2.z);
+
+	glEnd();
+	glFlush();
+}
+
+// 베지어 곡선 포인트클래스로 그리기
+Point drawBezier(Point A, Point B, Point C, Point D, double t) {
+	Point P;
+	
+	P.x = pow((1 - t), 3) * A.x + 3 * t * pow((1 - t), 2) * B.x + 3 * (1 - t) * pow(t, 2)* C.x + pow(t, 3)* D.x; // 3차 
+	P.y = pow((1 - t), 3) * A.y + 3 * t * pow((1 - t), 2) * B.y + 3 * (1 - t) * pow(t, 2)* C.y + pow(t, 3)* D.y; 
+	P.z = pow((1 - t), 3) * A.z + 3 * t * pow((1 - t), 2) * B.z + 3 * (1 - t) * pow(t, 2)* C.z + pow(t, 3)* D.z; 
+
+	return P;
+}
+
+void myMouse(int button, int state, int x, int y) {
+	// 마우스 좌클릭시
+	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+		// 클릭한 부분 저장
+		abc[NUMPOINTS].setxy((float)x, (float)(SCREEN_HEIGHT - y));
+
+		def[NUMPOINTS].setxy((float)x*cos(pi/4)- (float)(SCREEN_HEIGHT - y)*sin(pi/4), (float)x*sin(pi / 4)+(float)(SCREEN_HEIGHT - y)*cos(pi / 4));
+		NUMPOINTS++;
+
+		// 빨간점 찍기
+		drawDot(x, SCREEN_HEIGHT - y);
+		drawDot(x*cos(pi / 4) - (SCREEN_HEIGHT - y)*sin(pi / 4), x*sin(pi / 4) + (SCREEN_HEIGHT - y)*cos(pi / 4));
+
+		// 3개 다그려지면
+		if (NUMPOINTS == 4) {           //이거로 쿼드라틱,리니어,큐빅만드는거다
+			glColor3f(1.0, 1.0, 1.0); //배경 검은색지정
+			// 점들긋기
+			drawLine(abc[0], abc[1]);
+			drawLine(abc[1], abc[2]);
+			drawLine(abc[2], abc[3]);
+			
+			// 점들긋기-affine
+			drawLine(def[0], def[1]);
+			drawLine(def[1], def[2]);
+			drawLine(def[2], def[3]);
+			glColor3f(0, 1, 0); //선을 초록색으로 지정
+
+			Point POld = abc[0];
+			Point POld2 = def[0];
+             // de Casteljau 알고리즘
+			for (double t = 0.0; t <= 1.0; t += 0.1) {
+				Point P = drawBezier(abc[0], abc[1], abc[2], abc[3], t);
+				drawLine(POld, P);
+				POld = P;
+			}
+			for (double t = 0.0; t <= 1.0; t += 0.1) {
+				Point P = drawBezier(def[0], def[1], def[2], def[3], t);
+				drawLine(POld2, P);
+				POld2 = P;
+			}
+
+			glColor3f(1.0, 0.0, 0.0);
+			NUMPOINTS = 0;
+
+
+		}
+	}
+}
+
+void myDisplay() {
+	glClear(GL_COLOR_BUFFER_BIT);
+	glFlush();
+}
+
+int main(int argc, char *argv[]) {
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+	glutInitWindowSize(640, 480);
+	glutInitWindowPosition(100, 150);
+	glutCreateWindow("Bezier Curve");
+
+	glutMouseFunc(myMouse);
+	glutDisplayFunc(myDisplay);
+
+	myInit();
+	glutMainLoop();
+
+	return 0;
+}
